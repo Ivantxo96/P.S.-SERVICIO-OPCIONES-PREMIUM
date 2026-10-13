@@ -1,7 +1,7 @@
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell, LabelList,
 } from 'recharts';
-import { fmtEur, fmtEur0, fmtPct, fmtSigned, fmtMonth, fmtTs } from '../lib/format.js';
+import { fmtEur, fmtEur0, fmtPct, fmtMonth, fmtTs, fmtUsd0, fmtSignedUsd, fmtFx } from '../lib/format.js';
 
 const axisTick = { fill: 'var(--muted)', fontSize: 11 };
 const kTick = (v) => `${(v / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })}k`;
@@ -68,9 +68,10 @@ function EqTip({ active, payload }) {
   return (
     <div className="tip">
       <div className="tip-title">{fmtTs(p.t)}</div>
-      <div className="tip-row"><span>Capital</span><b>{fmtEur(p.capital)}</b></div>
+      <div className="tip-row"><span>Capital total</span><b>{fmtEur(p.capital)}</b></div>
       <div className="tip-row"><span>Rentabilidad</span><span>{fmtPct(p.ret, true)}</span></div>
       <div className="tip-row"><span>Drawdown</span><span>{fmtPct(p.dd)}</span></div>
+      {p.reset && <div className="tip-row muted"><span>Reseteo de divisa</span><span>✓</span></div>}
     </div>
   );
 }
@@ -87,7 +88,7 @@ export function MonthlyChart({ a }) {
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} stackOffset="sign" barCategoryGap="30%">
           <CartesianGrid stroke="var(--grid)" vertical={false} />
           <XAxis dataKey="key" tick={<MonthTick data={data} />} axisLine={{ stroke: 'var(--axis)' }} tickLine={false} height={38} interval={0} />
-          <YAxis tickFormatter={(v) => fmtEur0(v)} tick={axisTick} axisLine={false} tickLine={false} width={62} />
+          <YAxis tickFormatter={(v) => fmtUsd0(v)} tick={axisTick} axisLine={false} tickLine={false} width={62} />
           <ReferenceLine y={0} stroke="var(--axis)" />
           <Tooltip content={<MonthTip />} cursor={{ fill: 'var(--surface-2)' }} />
           {shown.map((s, i) => (
@@ -120,10 +121,12 @@ function MonthTip({ active, payload }) {
     <div className="tip">
       <div className="tip-title">{fmtMonth(m.key)} · {m.cierres} cierres</div>
       {SERIES.map((s) => (
-        <div className="tip-row" key={s.key}><span><i style={{ background: s.color }} />{s.label}</span><span>{fmtSigned(m[s.key])}</span></div>
+        <div className="tip-row" key={s.key}><span><i style={{ background: s.color }} />{s.label}</span><span>{fmtSignedUsd(m[s.key])}</span></div>
       ))}
-      <div className="tip-row tip-total"><span>Total</span><span>{fmtSigned(m.total)} ({fmtPct(m.ret, true)})</span></div>
-      <div className="tip-row"><span className="muted">Capital fin de mes</span><span>{fmtEur0(m.capEnd)}</span></div>
+      <div className="tip-row tip-total"><span>Total</span><span>{fmtSignedUsd(m.total)} ({fmtPct(m.ret, true)})</span></div>
+      {m.resets.map((r) => (
+        <div className="tip-row" key={r.date}><span className="muted">Reseteo</span><span>{fmtUsd0(r.usd)} a {fmtFx(r.rate)} → {fmtEur0(r.eur)}</span></div>
+      ))}
     </div>
   );
 }
@@ -164,9 +167,9 @@ function ExpoTip({ active, payload }) {
   return (
     <div className="tip">
       <div className="tip-title">{d.activo}</div>
-      {d.opciones > 0 && <div className="tip-row"><span><i style={{ background: 'var(--s1)' }} />Opciones</span><span>{fmtEur0(d.opciones)}</span></div>}
-      {d.acciones > 0 && <div className="tip-row"><span><i style={{ background: 'var(--s2)' }} />Acciones</span><span>{fmtEur0(d.acciones)}</span></div>}
-      <div className="tip-row tip-total"><span>Total</span><span>{fmtEur0(d.total)} · {fmtPct(d.pct)}</span></div>
+      {d.opciones > 0 && <div className="tip-row"><span><i style={{ background: 'var(--s1)' }} />Opciones</span><span>{fmtUsd0(d.opciones)}</span></div>}
+      {d.acciones > 0 && <div className="tip-row"><span><i style={{ background: 'var(--s2)' }} />Acciones</span><span>{fmtUsd0(d.acciones)}</span></div>}
+      <div className="tip-row tip-total"><span>Total</span><span>{fmtUsd0(d.total)} · {fmtPct(d.pct)}</span></div>
     </div>
   );
 }

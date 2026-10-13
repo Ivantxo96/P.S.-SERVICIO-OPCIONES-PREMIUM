@@ -12,27 +12,51 @@ export function loadGas({ codePath, sheetsPath, props }) {
   const raw = JSON.parse(fs.readFileSync(sheetsPath, 'utf8'));
   const grids = Object.fromEntries(Object.entries(raw).map(([k, rows]) => [k, rows.map((r) => r.map(toCell))]));
 
-  const makeRange = (grid, r, c, nr = 1, nc = 1) => ({
-    getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => grid[r - 1 + i]?.[c - 1 + j] ?? '')),
-    getValue: () => grid[r - 1]?.[c - 1] ?? '',
-    setValue: (v) => {
-      while (grid.length < r) grid.push([]);
-      grid[r - 1][c - 1] = v;
-    },
-  });
+  const a1ToRC = (a1) => {
+    const m = /^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/.exec(a1);
+    const col = (s) => s.split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+    const r1 = Number(m[2]); const c1 = col(m[1]);
+    const r2 = m[4] ? Number(m[4]) : r1; const c2 = m[3] ? col(m[3]) : c1;
+    return [r1, c1, r2 - r1 + 1, c2 - c1 + 1];
+  };
+  const makeRange = (grid, r, c, nr = 1, nc = 1) => {
+    const ensure = (rr) => { while (grid.length < rr) grid.push([]); };
+    let proxy;
+    const range = {
+      getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => grid[r - 1 + i]?.[c - 1 + j] ?? '')),
+      getValue: () => grid[r - 1]?.[c - 1] ?? '',
+      setValue: (v) => { ensure(r); grid[r - 1][c - 1] = v; return proxy; },
+      setValues: (vals) => { vals.forEach((row, i) => { ensure(r + i); row.forEach((v, j) => { grid[r - 1 + i][c - 1 + j] = v; }); }); return proxy; },
+      setFormulas: (vals) => range.setValues(vals),
+    };
+    // Métodos de formato: no-op encadenables
+    proxy = new Proxy(range, { get: (t, k) => (k in t ? t[k] : () => proxy) });
+    return proxy;
+  };
+  const order = Object.keys(grids);
   const makeSheet = (name) => {
     const grid = grids[name];
     if (!grid) return null;
-    const width = () => Math.max(...grid.map((r) => r.length));
-    return {
+    const width = () => Math.max(1, ...grid.map((r) => r.length));
+    let sproxy;
+    const sheet = {
       getName: () => name,
+      getIndex: () => order.indexOf(name) + 1,
       getLastRow: () => grid.length,
       getLastColumn: width,
       getDataRange: () => makeRange(grid, 1, 1, grid.length, width()),
-      getRange: (r, c, nr, nc) => makeRange(grid, r, c, nr, nc),
+      getRange: (r, c, nr, nc) => (typeof r === 'string' ? makeRange(grid, ...a1ToRC(r)) : makeRange(grid, r, c, nr, nc)),
+      clear: () => { grid.length = 0; return sproxy; },
     };
+    sproxy = new Proxy(sheet, { get: (t, k) => (k in t ? t[k] : () => sproxy) });
+    return sproxy;
   };
-  const ss = { getSheetByName: makeSheet, getSpreadsheetTimeZone: () => 'Europe/Madrid' };
+  const ss = {
+    getSheetByName: makeSheet,
+    getSpreadsheetTimeZone: () => 'Europe/Madrid',
+    getNumSheets: () => order.length,
+    insertSheet: (name, idx) => { grids[name] = []; order.splice(idx ?? order.length, 0, name); return makeSheet(name); },
+  };
   const cache = new Map();
   const properties = { ...props };
 

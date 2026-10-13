@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, loadConfig, session, SessionError } from './lib/api.js';
 import { analyze } from './lib/calc.js';
-import { Kpis, Stats } from './components/Kpis.jsx';
+import { fmtUsd } from './lib/format.js';
+import { Kpis, Stats, Accounts } from './components/Kpis.jsx';
 import { EquityChart, MonthlyChart, ExposureChart } from './components/Charts.jsx';
 import Expiries from './components/Expiries.jsx';
-import { OpenTable, ClosedTable, LotsTable, DividendsTable } from './components/Tables.jsx';
+import { OpenTable, ClosedTable, LotsTable, DividendsTable, DivisaTable } from './components/Tables.jsx';
 import { EditDialog, CloseDialog } from './components/Editor.jsx';
 
 export default function App() {
@@ -58,6 +59,7 @@ function Dashboard({ data, role, title, loading, error, reload, logout }) {
   const tabs = [
     ['abiertas', 'Abiertas', a.open.length], ['cerradas', 'Cerradas', a.closed.length],
     ['acciones', 'Acciones', a.lots.length], ['dividendos', 'Dividendos', a.divs.length],
+    ['divisa', 'Reseteos divisa', a.convs.length],
   ];
 
   return (
@@ -75,6 +77,7 @@ function Dashboard({ data, role, title, loading, error, reload, logout }) {
               <button className="btn primary" onClick={() => setEdit({ sheet: 'operaciones', row: null })}>+ Operación</button>
               <button className="btn" onClick={() => setEdit({ sheet: 'acciones', row: null })}>+ Lote</button>
               <button className="btn" onClick={() => setEdit({ sheet: 'dividendos', row: null })}>+ Dividendo</button>
+              <button className="btn" onClick={() => setEdit({ sheet: 'divisa', row: null })} title="Pasar el saldo de la cuenta USD a euros">+ Reseteo</button>
             </>}
             <button className="btn" onClick={reload} disabled={loading} title="Volver a leer la hoja">↻</button>
             <button className="btn" onClick={logout}>Salir</button>
@@ -85,17 +88,24 @@ function Dashboard({ data, role, title, loading, error, reload, logout }) {
       <main className="wrap">
         {error && <div className="error">{error}</div>}
         {flash && <div className="ok-msg">{flash}</div>}
+        {isAdmin && !a.fxConfigured && (
+          <div className="warn-bar">⚠ La hoja aún no tiene la configuración de divisa. En Apps Script ejecuta <b>actualizarHoja</b> una vez y rellena en Resumen el “Tipo de cambio EURUSD inicial”. Mientras tanto se usa 1 € = 1 $.</div>
+        )}
+        {isAdmin && a.fxConfigured && Math.abs(a.pendingClosedMonths) >= 0.01 && (
+          <div className="warn-bar">Recordatorio: hay {fmtUsd(a.pendingClosedMonths)} de meses ya cerrados sin consolidar en la cuenta USD. Usa “+ Reseteo” para pasarlos a euros.</div>
+        )}
         {isAdmin && a.warnings > 0 && (
           <div className="warn-bar">⚠ Hay {a.warnings} fila(s) con avisos en la columna Control de la hoja (faltan datos o hay incoherencias). Solo tú ves este aviso.</div>
         )}
 
         <Kpis a={a} />
+        <Accounts a={a} />
         <Stats a={a} />
 
         <div className="grid-2">
           <section className="card">
             <div className="card-head">
-              <div><h2>Evolución del capital</h2><p className="small muted">Capital inicial + resultado realizado (primas, acciones y dividendos)</p></div>
+              <div><h2>Evolución del capital</h2><p className="small muted">En € · cuenta EUR + cuenta USD (lo consolidado a su cambio, lo pendiente al cambio actual)</p></div>
             </div>
             <EquityChart a={a} />
           </section>
@@ -110,13 +120,13 @@ function Dashboard({ data, role, title, loading, error, reload, logout }) {
         <div className="grid-2">
           <section className="card">
             <div className="card-head">
-              <div><h2>Resultado por mes</h2><p className="small muted">Por fecha de cierre, venta de acciones o cobro del dividendo · % sobre el capital al inicio del mes</p></div>
+              <div><h2>Resultado por mes</h2><p className="small muted">Operativa en $ · por fecha de cierre, venta de acciones o cobro · % sobre el capital al inicio del mes</p></div>
             </div>
             <MonthlyChart a={a} />
           </section>
           <section className="card">
             <div className="card-head">
-              <div><h2>Capital comprometido por activo</h2><p className="small muted">% sobre el capital actual · las calls cubiertas usan el capital del lote</p></div>
+              <div><h2>Capital comprometido por activo</h2><p className="small muted">En $ · % sobre el capital total · las calls cubiertas usan el capital del lote</p></div>
             </div>
             <ExposureChart a={a} />
           </section>
@@ -134,14 +144,16 @@ function Dashboard({ data, role, title, loading, error, reload, logout }) {
           {tab === 'cerradas' && <ClosedTable rows={a.closed} isAdmin={isAdmin} onEdit={(r) => setEdit({ sheet: 'operaciones', row: r })} />}
           {tab === 'acciones' && <LotsTable rows={a.lots} isAdmin={isAdmin} onEdit={(r) => setEdit({ sheet: 'acciones', row: r })} />}
           {tab === 'dividendos' && <DividendsTable rows={a.divs} isAdmin={isAdmin} onEdit={(r) => setEdit({ sheet: 'dividendos', row: r })} />}
+          {tab === 'divisa' && <DivisaTable rows={data.divisa || []} isAdmin={isAdmin} onEdit={(r) => setEdit({ sheet: 'divisa', row: r })} />}
           <p className="note">
             Vencida: expira sin valor y se queda toda la prima. Asignada: se ejecuta; la prima cuenta en opciones y las acciones van a la pestaña Acciones.
             Las operaciones abiertas y las acciones en cartera no suman al capital hasta que se cierran.
+            Importes de la operativa en dólares; capital total en euros.
           </p>
         </section>
       </main>
 
-      {edit && <EditDialog sheet={edit.sheet} row={edit.row} data={data} onDone={done} />}
+      {edit && <EditDialog sheet={edit.sheet} row={edit.row} data={data} a={a} onDone={done} />}
       {closing && <CloseDialog op={closing} data={data} onDone={done} />}
     </>
   );

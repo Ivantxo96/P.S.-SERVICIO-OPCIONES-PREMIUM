@@ -11,11 +11,11 @@ function fieldsFor(sheet, listas, lots) {
     { h: C.estrategia, type: 'select', opts: listas.estrategias, req: true },
     { h: C.sv, type: 'num' }, { h: C.sc, type: 'num' }, { h: C.vto, type: 'date', req: true },
     { h: C.contratos, type: 'int', req: true }, { h: C.mult, type: 'int' },
-    { h: C.subyacente, type: 'num' }, { h: C.primaAp, type: 'num', req: true },
-    { h: 'Comisiones apertura €', type: 'num' },
+    { h: C.subyacente, type: 'num', label: 'Precio subyacente apertura $' }, { h: C.primaAp, type: 'num', req: true, label: 'Prima apertura (por acción) $' },
+    { h: C.comAp, type: 'num', label: 'Comisiones apertura $' },
     { h: C.estado, type: 'select', opts: listas.estados, req: true },
-    { h: C.fCierre, type: 'date' }, { h: C.primaCie, type: 'num' }, { h: 'Comisiones cierre €', type: 'num' },
-    { h: 'Capital en riesgo manual €', type: 'num', hint: 'Solo strangle, straddle u “Otra”' },
+    { h: C.fCierre, type: 'date' }, { h: C.primaCie, type: 'num', label: 'Prima cierre (por acción) $' }, { h: C.comCie, type: 'num', label: 'Comisiones cierre $' },
+    { h: C.capManual, type: 'num', label: 'Capital en riesgo manual $', hint: 'Solo strangle, straddle u “Otra”' },
     { h: C.lote, type: 'select', opts: ['', ...lotIds] },
     { h: C.id, type: 'int', hint: 'Vacío = automático' },
     { h: C.notas, type: 'text', wide: true },
@@ -23,33 +23,40 @@ function fieldsFor(sheet, listas, lots) {
   if (sheet === 'acciones') return [
     { h: C.idLote, type: 'text', req: true }, { h: C.activo, type: 'text', req: true },
     { h: C.origen, type: 'select', opts: listas.origenes },
-    { h: 'ID operación origen', type: 'int' }, { h: C.fEntrada, type: 'date', req: true },
-    { h: C.nAcc, type: 'int', req: true }, { h: C.pEntrada, type: 'num', req: true, hint: 'Si viene de asignación: strike de la put' },
-    { h: 'Comisiones entrada €', type: 'num' },
+    { h: C.idOpOrigen, type: 'int' }, { h: C.fEntrada, type: 'date', req: true },
+    { h: C.nAcc, type: 'int', req: true }, { h: C.pEntrada, type: 'num', req: true, label: 'Precio entrada (por acción) $', hint: 'Si viene de asignación: strike de la put' },
+    { h: C.comEnt, type: 'num', label: 'Comisiones entrada $' },
     { h: C.estado, type: 'select', opts: listas.estadosLote, req: true },
-    { h: C.fSalida, type: 'date' }, { h: C.pSalida, type: 'num' }, { h: 'Comisiones salida €', type: 'num' },
-    { h: C.pActual, type: 'num', hint: 'Para la plusvalía latente' },
+    { h: C.fSalida, type: 'date' }, { h: C.pSalida, type: 'num', label: 'Precio salida (por acción) $' }, { h: C.comSal, type: 'num', label: 'Comisiones salida $' },
+    { h: C.pActual, type: 'num', label: 'Precio actual $', hint: 'Para la plusvalía latente' },
+    { h: C.notas, type: 'text', wide: true },
+  ];
+  if (sheet === 'divisa') return [
+    { h: C.fecha, type: 'date', req: true },
+    { h: C.usdConv, type: 'num', req: true, label: 'USD consolidados $', hint: 'Por defecto, el saldo de la cuenta USD pendiente' },
+    { h: C.tc, type: 'num', req: true, label: 'Tipo de cambio EURUSD', hint: 'Dólares por 1 euro (p. ej. 1,1650)' },
+    { h: C.comision, type: 'num', label: 'Comisión €', hint: 'Coste de la conversión, si lo hay' },
     { h: C.notas, type: 'text', wide: true },
   ];
   return [
     { h: C.fCobro, type: 'date', req: true }, { h: C.idLote, type: 'select', opts: ['', ...lotIds] },
     { h: C.activo, type: 'text', req: true }, { h: C.nAcc, type: 'int', req: true },
-    { h: C.dpa, type: 'num', req: true }, { h: C.retencion, type: 'num', hint: 'Importe en €, no %' },
+    { h: C.dpa, type: 'num', req: true, label: 'Dividendo por acción $' }, { h: C.retencion, type: 'num', label: 'Retención $', hint: 'Importe, no %' },
     { h: C.notas, type: 'text', wide: true },
   ];
 }
 
-const TITLES = { operaciones: 'operación', acciones: 'lote de acciones', dividendos: 'dividendo' };
+const TITLES = { operaciones: 'operación', acciones: 'lote de acciones', dividendos: 'dividendo', divisa: 'reseteo de divisa' };
 const toInput = (v) => (v === null || v === undefined ? '' : String(v));
 const nextLotId = (lots) => `L${lots.reduce((m, l) => Math.max(m, Number(String(l[C.idLote] || '').replace(/\D/g, '')) || 0), 0) + 1}`;
 
 function validate(fields, values) {
   for (const f of fields) {
     const v = values[f.h];
-    if (f.req && (v === '' || v === undefined)) return `Falta: ${f.h}`;
+    if (f.req && (v === '' || v === undefined)) return `Falta: ${f.label || f.h}`;
     if (v === '' || v === undefined) continue;
-    if ((f.type === 'num' || f.type === 'int') && !Number.isFinite(Number(String(v).replace(',', '.')))) return `${f.h} debe ser un número`;
-    if (f.type === 'int' && !Number.isInteger(Number(v))) return `${f.h} debe ser un número entero`;
+    if ((f.type === 'num' || f.type === 'int') && !Number.isFinite(Number(String(v).replace(',', '.')))) return `${f.label || f.h} debe ser un número`;
+    if (f.type === 'int' && !Number.isInteger(Number(v))) return `${f.label || f.h} debe ser un número entero`;
   }
   return null;
 }
@@ -63,7 +70,7 @@ function Field({ f, value, onChange }) {
   else input = <input type="text" {...common} />;
   return (
     <label className={`f ${f.wide ? 'wide' : ''}`}>
-      <span>{f.h}{f.req && <span className="req"> *</span>}</span>
+      <span>{f.label || f.h}{f.req && <span className="req"> *</span>}</span>
       {input}
       {f.hint && <span className="muted" style={{ fontSize: 11 }}>{f.hint}</span>}
     </label>
@@ -71,7 +78,7 @@ function Field({ f, value, onChange }) {
 }
 
 /* ---------------- Alta / edición genérica */
-export function EditDialog({ sheet, row, data, onDone }) {
+export function EditDialog({ sheet, row, data, a, onDone }) {
   const fields = useMemo(() => fieldsFor(sheet, data.listas, data.acciones), [sheet, data]);
   const [values, setValues] = useState(() => {
     const v = {};
@@ -80,6 +87,12 @@ export function EditDialog({ sheet, row, data, onDone }) {
       if (sheet === 'operaciones') Object.assign(v, { [C.fApertura]: todayStr(), [C.mult]: '100', [C.estado]: 'Abierta', [C.estrategia]: data.listas.estrategias[0] || '' });
       if (sheet === 'acciones') Object.assign(v, { [C.idLote]: nextLotId(data.acciones), [C.estado]: 'En cartera', [C.origen]: data.listas.origenes[0] || '', [C.fEntrada]: todayStr() });
       if (sheet === 'dividendos') v[C.fCobro] = todayStr();
+      if (sheet === 'divisa') Object.assign(v, {
+        [C.fecha]: todayStr(),
+        [C.usdConv]: a && a.usdPending > 0 ? String(Math.round(a.usdPending * 100) / 100) : '',
+        [C.tc]: a ? String(a.fxNow) : '',
+        [C.notas]: 'Reseteo mensual',
+      });
     }
     return v;
   });
@@ -146,7 +159,7 @@ export function CloseDialog({ op, data, onDone }) {
   const [estado, setEstado] = useState('Cerrada');
   const [fecha, setFecha] = useState(today < op[C.vto] ? today : op[C.vto]);
   const [prima, setPrima] = useState('');
-  const [comis, setComis] = useState(toInput(op['Comisiones apertura €']));
+  const [comis, setComis] = useState(toInput(op[C.comAp]));
   const [makeLot, setMakeLot] = useState(true);
   const [lotId, setLotId] = useState(nextLotId(data.acciones));
   const [callAway, setCallAway] = useState(true);
@@ -166,11 +179,11 @@ export function CloseDialog({ op, data, onDone }) {
     if (needsPrima && (prima === '' || !Number.isFinite(Number(prima.replace(',', '.'))))) return setError('Indica la prima de cierre por acción');
     setBusy(true); setError('');
     try {
-      const values = { [C.estado]: estado, [C.fCierre]: fecha, [C.primaCie]: needsPrima ? prima : '', 'Comisiones cierre €': comis };
+      const values = { [C.estado]: estado, [C.fCierre]: fecha, [C.primaCie]: needsPrima ? prima : '', [C.comCie]: comis };
       if (willCreateLot) {
         if (data.acciones.some((l) => l[C.idLote] === lotId)) throw new Error(`Ya existe el lote ${lotId}`);
         await api.save('acciones', null, {
-          [C.idLote]: lotId, [C.activo]: op[C.activo], [C.origen]: 'Asignación put', 'ID operación origen': op[C.id],
+          [C.idLote]: lotId, [C.activo]: op[C.activo], [C.origen]: 'Asignación put', [C.idOpOrigen]: op[C.id],
           [C.fEntrada]: fecha, [C.nAcc]: shares, [C.pEntrada]: strike, [C.estado]: 'En cartera',
         });
         values[C.lote] = lotId;
@@ -195,9 +208,9 @@ export function CloseDialog({ op, data, onDone }) {
         <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
           <label className="f">Fecha {estado === 'Asignada' ? 'de asignación' : estado === 'Vencida' ? 'de vencimiento' : 'de cierre'}
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></label>
-          {needsPrima && <label className="f">Prima de cierre (por acción)
+          {needsPrima && <label className="f">Prima de cierre (por acción) $
             <input inputMode="decimal" value={prima} onChange={(e) => setPrima(e.target.value)} autoFocus /></label>}
-          <label className="f">Comisiones de cierre €
+          <label className="f">Comisiones de cierre $
             <input inputMode="decimal" value={comis} onChange={(e) => setComis(e.target.value)} /></label>
         </div>
         {estado === 'Rolada' && <div className="warn-bar">Después registra la operación nueva con “+ Operación”.</div>}

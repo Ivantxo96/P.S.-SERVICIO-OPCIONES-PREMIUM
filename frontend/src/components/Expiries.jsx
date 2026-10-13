@@ -1,5 +1,5 @@
 import { C } from '../lib/calc.js';
-import { fmtDayMonth, fmtEur0, fmtNum } from '../lib/format.js';
+import { fmtDayMonth, fmtUsd0, fmtNum } from '../lib/format.js';
 
 const strikes = (o) => [o[C.sv], o[C.sc]].filter((v) => v !== null && v !== undefined).map(fmtNum).join(' / ');
 
@@ -29,7 +29,7 @@ export default function Expiries({ open, isAdmin, onClose }) {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div className="tab">{fmtEur0(o[C.primaNeta])}</div>
+                <div className="tab">{fmtUsd0(o[C.primaNeta])}</div>
                 {isAdmin
                   ? <button className="btn sm" onClick={() => onClose(o)}>Cerrar</button>
                   : <div className="small muted">prima</div>}

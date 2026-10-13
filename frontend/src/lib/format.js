@@ -1,6 +1,9 @@
 const eur = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
 const eur0 = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
+const usd = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD', currencyDisplay: 'narrowSymbol', minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
+const usd0 = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD', currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0, useGrouping: 'always' });
 const n2 = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' });
+const n4 = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const n1 = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -8,6 +11,10 @@ export const fmtEur = (v) => (isNum(v) ? eur.format(v) : '—');
 export const fmtEur0 = (v) => (isNum(v) ? eur0.format(v) : '—');
 export const fmtSigned = (v) => (isNum(v) ? (v > 0 ? '+' : '') + eur.format(v) : '—');
 export const fmtNum = (v) => (isNum(v) ? n2.format(v) : '—');
+export const fmtUsd = (v) => (isNum(v) ? usd.format(v) : '—');
+export const fmtUsd0 = (v) => (isNum(v) ? usd0.format(v) : '—');
+export const fmtSignedUsd = (v) => (isNum(v) ? (v > 0 ? '+' : '') + usd.format(v) : '—');
+export const fmtFx = (v) => (isNum(v) ? n4.format(v) : '—');
 export const fmtPct = (v, signed = false) => (isNum(v) ? (signed && v > 0 ? '+' : '') + n1.format(v * 100) + ' %' : '—');
 export const tone = (v) => (isNum(v) ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '');
 

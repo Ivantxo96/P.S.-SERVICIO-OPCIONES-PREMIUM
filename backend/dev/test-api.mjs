@@ -42,16 +42,22 @@ test('lectura de datos', () => {
   assert.equal(d.operaciones.length, 26);
   assert.equal(d.acciones.length, 2);
   assert.equal(d.dividendos.length, 1);
+  assert.equal(d.divisa.length, 5);
+  assert.equal(d.divisa[4]['USD consolidados'], 263.75);
+  assert.equal(d.divisa[4]['Tipo de cambio EURUSD'], 1.17);
   assert.equal(d.cuenta.capitalInicial, 15000);
+  assert.equal(d.cuenta.fxInicial, 1.13);
+  assert.equal(d.cuenta.fxActual, 1.165);
+  assert.equal(d.cuenta.divisaConfigurada, true);
   assert.equal(d.cuenta.cliente, 'Cliente demo');
   assert.ok(d.listas.estrategias.includes('Put vendida (CSP)'));
   assert.deepEqual(d.listas.estados, ['Abierta', 'Cerrada', 'Rolada', 'Vencida', 'Asignada']);
   const op1 = d.operaciones[0];
   assert.equal(op1._row, 2);
   assert.equal(op1['Fecha apertura'], '2026-05-04');
-  assert.equal(op1['Resultado prima €'], 73.9);
+  assert.equal(op1['Resultado prima'], 73.9);
   assert.equal(op1['Control'], 'OK');
-  const sum = d.operaciones.reduce((s, o) => s + (typeof o['Resultado prima €'] === 'number' ? o['Resultado prima €'] : 0), 0);
+  const sum = d.operaciones.reduce((s, o) => s + (typeof o['Resultado prima'] === 'number' ? o['Resultado prima'] : 0), 0);
   assert.equal(Math.round(sum * 100) / 100, 850.7);
 });
 
@@ -68,7 +74,7 @@ test('alta de operación: primera fila libre, ID automático y multiplicador por
   const r = g.call({ action: 'save', token, sheet: 'operaciones', values: {
     'Fecha apertura': '2026-10-12', Activo: 'ko', Estrategia: 'Put vendida (CSP)', 'Strike venta': '62,5',
     Vencimiento: '2026-11-13', Contratos: 1, 'Prima apertura (por acción)': 0.7, Estado: 'Abierta',
-    'Resultado prima €': 999999, // columna calculada: debe ignorarse
+    'Resultado prima': 999999, // columna calculada: debe ignorarse
   } });
   assert.equal(r.ok, true, r.error);
   assert.equal(r.row, 28);
@@ -80,7 +86,7 @@ test('alta de operación: primera fila libre, ID automático y multiplicador por
   assert.equal(cell('Strike venta'), 62.5);
   assert.equal(cell('Multiplicador'), 100);
   assert.equal(Object.prototype.toString.call(cell('Fecha apertura')), '[object Date]');
-  assert.notEqual(cell('Resultado prima €'), 999999);
+  assert.notEqual(cell('Resultado prima $'), 999999);
 });
 
 test('editar solo los campos enviados y validar tipos', () => {
@@ -111,6 +117,15 @@ test('alta de lote y dividendo, y borrado', () => {
   const h = g.grids.Operaciones[0];
   assert.equal(g.grids.Operaciones[26][h.indexOf('Activo')], '');
   assert.equal(g.grids.Operaciones[26][h.indexOf('Multiplicador')], 100);
+});
+
+test('alta de reseteo de divisa', () => {
+  const g = fresh();
+  const { token } = g.call({ action: 'login', password: 'gestor-demo' });
+  const r = g.call({ action: 'save', token, sheet: 'divisa', values: { Fecha: '2026-10-31', 'USD consolidados': '113,6', 'Tipo de cambio EURUSD': 1.165, Comisión: '' } });
+  assert.equal(r.ok, true, r.error);
+  assert.equal(r.row, 7);
+  assert.match(g.call({ action: 'save', token, sheet: 'divisa', values: { 'USD consolidados': 5 } }).error, /Falta Fecha/);
 });
 
 console.log(`\n${passed} pruebas superadas`);
